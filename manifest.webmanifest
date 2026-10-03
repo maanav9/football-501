@@ -1,11 +1,12 @@
 {
-  "name": "Football 501 Unlimited",
-  "short_name": "501",
+  "name": "Football 501",
+  "short_name": "Football 501",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0C100E",
-  "theme_color": "#161C18",
+  "orientation": "portrait",
+  "background_color": "#111618",
+  "theme_color": "#111618",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
