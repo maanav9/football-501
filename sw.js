@@ -1,5 +1,5 @@
 // Keeps the game on the phone so it opens with no signal. Bump VERSION when the files change.
-const VERSION = 'f501-v19';
+const VERSION = 'f501-v21';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
