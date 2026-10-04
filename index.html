@@ -538,6 +538,8 @@ body.typing .chat-fab { display: none; }
 .lb-rec i { font-style: normal; color: var(--text-3); font-size: 20px; }
 .lb-split { grid-column: 2 / -1; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
 .lb-split i { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
+/* how many players would check you out */
+.sb-stat small.outs, .bs small.outs { margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--success); opacity: .85; white-space: nowrap; }
 
 /* ===== Football 501 — "Tactics board": the manager's board in the dressing room. Chalk lines on slate at night,
    marker lines on a whiteboard by day, red and blue magnets for the players, an elegant serif for the numbers. ===== */
@@ -1177,7 +1179,7 @@ const SPORT = {
       { thr, hot, won, label: P.map(p => `${p.name} on ${signed(p.score)}`).join(', ') });
     if (!multi) {
       const p = P[0], w = win(p.score);
-      const need = G.over ? '' : o.finish ? (w ? `<div class="sb-stat"><small>Checkout</small><b class="fin">${w}</b></div>` : `<div class="sb-stat"><small>To checkout zone</small><b>${p.score - thr}</b></div>`) : '';
+      const need = G.over ? '' : o.finish ? (w ? `<div class="sb-stat"><small>Checkout</small><b class="fin">${w}</b><small class="outs">${outsWord(o.outs(p.score))}</small></div>` : `<div class="sb-stat"><small>To checkout zone</small><b>${p.score - thr}</b></div>`) : '';
       return `<div class="board sb-solo">
         <div class="sb-row"><div><div class="sb-label">${G.over ? (won ? 'Finished on' : 'Left on') : 'Score'}</div>${num(p.score, 0, 'sb-num')}</div>
           <div class="sb-side"><div class="sb-stat"><small>Darts</small><b>${p.darts}</b></div><div class="sb-stat par"><small>Par</small><b>${parOf(G.cat)}</b></div>${need}</div></div>
@@ -1186,7 +1188,7 @@ const SPORT = {
     const tag = i => G.over ? (G.winner === i ? 'Winner' : '') : i === G.turn ? (o.me === i && G.mode === 'online' ? 'Your turn' : 'To throw') : (o.me === i && G.mode === 'online' ? 'You' : '');
     const w = win(cur.score);
     const foot = G.over ? '' : `<div class="sb-foot"><i style="--pc:${P_COL[G.turn % 4]}"></i>${awayOf(G.turn) != null ? `<span>${awayLine(G.turn)}</span>` : !o.finish ? `<span><b>${esc(youOr(G.turn))}</b> to throw, on ${signed(cur.score)}</span>`
-      : w ? `<span><b>${esc(youOr(G.turn))}</b> checks out with ${w}</span>` : `<span><b>${esc(youOr(G.turn))}</b> needs ${cur.score - thr} to reach the checkout zone</span>`}</div>`;
+      : w ? `<span><b>${esc(youOr(G.turn))}</b> checks out with ${w}${outsLine(o.outs(cur.score))}</span>` : `<span><b>${esc(youOr(G.turn))}</b> needs ${cur.score - thr} to reach the checkout zone</span>`}</div>`;
     if (P.length === 2) {
       return `<div class="board sb-multi"><div class="bug">${P.map((p, i) => `<div data-pi="${i}" class="bug-side${i ? ' r' : ''}${!G.over && i === G.turn ? ' on' : ''}${G.over && G.winner === i ? ' on' : ''}${p.away ? ' away' : awayOf(i) != null ? ' off' : ''}" style="--pc:${P_COL[i]}">
           <span class="bug-tag">${tag(i) || '&nbsp;'}</span><span class="bug-name"><i></i>${esc(p.name)}</span>
@@ -1342,7 +1344,8 @@ function catValues(c) {
       if (F.gk && B.PP[p] !== 0) continue;
       let v = 0;
       for (const [col, coef] of F.co) v += coef * a[i + L.s + col];
-      if (v) out.set(p, (out.get(p) || 0) + v);
+      if (F.agg === 'max') { if (v > (out.get(p) || 0)) out.set(p, v); }   // highest score: the best innings, not a total
+      else if (v) out.set(p, (out.get(p) || 0) + v);
     }
   }
   for (const [p, v] of out) if (v <= 0) out.delete(p);
@@ -1405,6 +1408,15 @@ function resolve(score, v) {
   }
   return { type: 'ok', score: next };
 }
+// how many players still unpicked would check this score out right now, under the current rules
+function outsLeft(score) {
+  if (!G || !G.vals) return 0;
+  let n = 0;
+  for (const [pid, v] of G.vals) if (!G.used.has(pid) && resolve(score, v).type === 'win') n++;
+  return n;
+}
+const outsWord = n => n ? `${fmt(n)} player${n === 1 ? '' : 's'}` : 'None left';
+const outsLine = n => n ? `. ${fmt(n)} player${n === 1 ? '' : 's'} would do it` : ". No player left would do it";
 function finishWindow(score) {
   if (score > 180 || (strictOn() && score > 170)) return null;
   return [score, strictOn() ? Math.min(score + 10, 170) : score + 10];
@@ -1775,7 +1787,7 @@ function renderProfile() {
       <div class="section-h"><h2 class="t-h2">Rules</h2></div>
       <div class="rows">
         <button class="row" data-set="strict"><span class="rt"><b>Strict darts rules</b><span>Bogey numbers bust, and you can only check out on a real darts finish</span></span><span class="switch" role="switch" aria-checked="${settings.strict}" aria-label="Strict darts rules"></span></button>
-        <button class="row" data-set="finish"><span class="rt"><b>Show finish window</b><span>The values that would check you out</span></span><span class="switch" role="switch" aria-checked="${settings.finish}" aria-label="Show finish window"></span></button>
+        <button class="row" data-set="finish"><span class="rt"><b>Show finish window</b><span>The values that would check you out, and how many players fit</span></span><span class="switch" role="switch" aria-checked="${settings.finish}" aria-label="Show finish window"></span></button>
         <button class="row" id="pRules"><span class="rt"><b>How to play</b><span>The rules in 30 seconds</span></span>${I.chev.replace('class="ico"', 'class="ico chev"')}</button>
         <button class="row" id="pOnb"><span class="rt"><b>Replay the intro</b><span>The three welcome screens</span></span>${I.chev.replace('class="ico"', 'class="ico chev"')}</button>
       </div>
@@ -1872,7 +1884,7 @@ function renderGame(fresh) {
   const hostGone = lostNet && hostAway();
   $('gMid').innerHTML = G.mode === 'online' ? (lostNet ? `<span class="dot warn"></span>${hostGone ? 'Host is away' : 'Reconnecting…'}` : `<span class="dot"></span>Room ${esc(NET.code)}`) : G.mode === 'pass' ? `Pass and play, leg ${G.n || G.leg}` : `Solo, leg ${G.n || G.leg}`;
   const prev = lastShown.scores;
-  $('scorearea').innerHTML = SPORT.scoreboard(G, { me, finish: settings.finish, fw: finishWindow, multi });
+  $('scorearea').innerHTML = SPORT.scoreboard(G, { me, finish: settings.finish, fw: finishWindow, multi, outs: outsLeft });
   const turnChanged = multi && lastShown.turn !== -1 && lastShown.turn !== G.turn && !G.over;
   if (prev && !fresh) SPORT.animate(prev, G.players.map(p => p.score), G);
   if (turnChanged) { const sa = $('scorearea'); sa.classList.remove('turnflip'); void sa.offsetWidth; sa.classList.add('turnflip'); }
